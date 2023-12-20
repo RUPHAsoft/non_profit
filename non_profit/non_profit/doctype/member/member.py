@@ -18,7 +18,7 @@ class Member(Document):
 		"""Load address and contacts in `__onload`"""
 		load_address_and_contact(self)
 
-	def before_insert(self):
+	def on_update(self):
 		self.generate_qr_code()
 		self.send_email_to_member()
 
