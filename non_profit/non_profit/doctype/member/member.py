@@ -22,6 +22,8 @@ class Member(Document):
 	def validate(self):
 		if self.email_id:
 			self.validate_email_type(self.email_id)
+			self.generate_qr_code()
+			self.send_email_to_member()
 
 	def validate_email_type(self, email):
 		from frappe.utils import validate_email_address
@@ -54,6 +56,61 @@ class Member(Document):
 		subscription = controller.setup_subscription(settings, **args)
 
 		return subscription
+
+
+	def generate_qr_code(self):
+		if not self.qr_code:
+			if self.name and self.member_name and email_id:
+				from print_designer.print_designer.page.print_designer.print_designer import get_barcode
+				arguments = {
+					"barcode_format": "qrcode",
+					"barcode_value": doc.member_name + " - " + doc.name,
+					"options": {"background":"#ffffff","quiet_zone":1,"foreground":"#142b91"}
+					}
+				try:
+					self.qr_code = get_barcode(arguments)["value"]
+				except Exception as e:
+					frappe.log_error(frappe.get_traceback(), _("QR Code Generation Failed"))
+			else:
+				frappe.throw("Please provide all the details")
+
+
+	def send_email_to_member(self):
+		from frappe.core.doctype.communication.email import make
+		args = {
+			"doctype" : "Member",
+			"name" : self.name,
+			"content" : f"<h3><i>Your Personal certified NHIF Notice has been generated.<br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download.</i></h3>",
+			"subject" : "NHIF Notice",
+			"sent_or_received" : "Sent",
+			"sender" : "RUPHA",
+			"recipients" : [self.email_id],
+			"communication_medium" : "Email",
+			"print_html" : None,
+			"print_format" : "RUPHA-NOTICE"
+		}
+		# :param doctype: Reference DocType.
+		# :param name: Reference Document name.
+		# :param content: Communication body.
+		# :param subject: Communication subject.
+		# :param sent_or_received: Sent or Received (default **Sent**).
+		# :param sender: Communcation sender (default current user).
+		# :param recipients: Communication recipients as list.
+		# :param communication_medium: Medium of communication (default **Email**).
+		# :param send_email: Send via email (default **False**).
+		# :param print_html: HTML Print format to be sent as attachment.
+		# :param print_format: Print Format name of parent document to be sent as attachment.
+		# :param attachments: List of File names or dicts with keys "fname" and "fcontent"
+		# :param send_me_a_copy: Send a copy to the sender (default **False**).
+		# :param email_template: Template which is used to compose mail .
+		# :param send_after: Send after the given datetime.
+		try:
+			make(args)
+		except Exception as e:
+			frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
+
+
+
 
 	@frappe.whitelist()
 	def make_customer_and_link(self):
