@@ -18,6 +18,10 @@ class Member(Document):
 		"""Load address and contacts in `__onload`"""
 		load_address_and_contact(self)
 
+	def before_insert(self):
+		self.generate_qr_code()
+		self.send_email_to_member()
+
 
 	def validate(self):
 		if self.email_id:
@@ -104,10 +108,11 @@ class Member(Document):
 		# :param send_me_a_copy: Send a copy to the sender (default **False**).
 		# :param email_template: Template which is used to compose mail .
 		# :param send_after: Send after the given datetime.
-		try:
-			make(args)
-		except Exception as e:
-			frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
+		if self.is_new():
+			try:
+				make(args)
+			except Exception as e:
+				frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
 
 
 
