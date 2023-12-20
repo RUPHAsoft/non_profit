@@ -64,7 +64,7 @@ class Member(Document):
 				from print_designer.print_designer.page.print_designer.print_designer import get_barcode
 				arguments = {
 					"barcode_format": "qrcode",
-					"barcode_value": doc.member_name + " - " + doc.name,
+					"barcode_value": self.member_name + " - " + self.name,
 					"options": {"background":"#ffffff","quiet_zone":1,"foreground":"#142b91"}
 					}
 				try:
