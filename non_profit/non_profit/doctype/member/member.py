@@ -60,7 +60,7 @@ class Member(Document):
 
 	def generate_qr_code(self):
 		if not self.qr_code:
-			if self.name and self.member_name and email_id:
+			if self.name and self.member_name and self.email_id:
 				from print_designer.print_designer.page.print_designer.print_designer import get_barcode
 				arguments = {
 					"barcode_format": "qrcode",
