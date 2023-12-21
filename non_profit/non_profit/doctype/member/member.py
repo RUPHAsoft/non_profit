@@ -139,13 +139,7 @@ class Member(Document):
 				communication_medium = args["communication_medium"],
 				print_html = args["print_html"],
 				print_format = args["print_format"]
-			)
-			comm.send_email(
-				print_html=args["print_html"],
-				print_format=args["print_format"],
-				send_me_a_copy=0,
-				print_letterhead=0,
-			)
+			).send_email()
 			emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
 		except Exception as e:
 			frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
