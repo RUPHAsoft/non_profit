@@ -126,7 +126,7 @@ class Member(Document):
 		# :param send_after: Send after the given datetime.
 		
 		try:
-			comm = make(
+			comm = new make(
 				doctype = args["doctype"],
 				name = args["name"],
 				content = args["content"],
