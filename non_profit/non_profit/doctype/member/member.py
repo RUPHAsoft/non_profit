@@ -82,13 +82,28 @@ class Member(Document):
 
 	def send_email_to_member(self):
 		from frappe.core.doctype.communication.email import make
+		footer = '<hr><small><i>\
+			This email and any files transmitted with it are confidential and intended solely for the use of the individual or entity to \
+			whom they are addressed. If you have received this email in error please notify the system manager. This message contains \
+			confidential information and is intended only for the individual named. If you are not the named addressee you should not \
+            disseminate, distribute or copy this e-mail. Please notify the sender immediately by e-mail if you have received this e-mail \
+            by mistake and delete this e-mail from your system. If you are not the intended recipient you are notified that disclosing, \
+            copying, distributing or taking any action in reliance on the contents of this information is strictly prohibited.\
+			</i></small><br>\
+			<strong>Rural Private Hospitals Association (RUPHA)</strong><br>\
+			2nd Floor, Lungalunga Square, Off Lungalunga Street, Industrial Area Nairobi, Kenya | Email Address: info@rupha.co.ke<br>\
+			http://www.rupha.co.ke/<br>\
+			<h4><strong>Powered by RUPHAsoft</strong><\h4>\
+		'
 		args = {
 			"doctype" : "Member",
 			"name" : self.name,
-			"content" : f"Dear Member,<br><br><h3><i>Your institution's unique NHIF Notice has been auto generated.</i></h3><br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download.",
+			"content" : f"Dear Member,<br><br><h3><i>Your institution's unique NHIF Notice has been auto generated.</i></h3><br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download.<br>"+ footer,
 			"subject" : "NHIF Notice",
 			"sent_or_received" : "Sent",
 			"sender" : "noreply@rupha.co.ke",
+			"sender_full_name": "RUPHA - Powered by RUPHAsoft",
+			"send_email": True,
 			"recipients" : [self.email_id],
 			"communication_medium" : "Email",
 			"print_html" : None,
@@ -118,6 +133,8 @@ class Member(Document):
 				subject = args["subject"],
 				sent_or_received = args["sent_or_received"],
 				sender = args["sender"],
+				sender_full_name = args["sender_full_name"],
+				send_email = args["send_email"],
 				recipients = args["recipients"],
 				communication_medium = args["communication_medium"],
 				print_html = args["print_html"],
