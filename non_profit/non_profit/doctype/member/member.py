@@ -74,6 +74,7 @@ class Member(Document):
 				try:
 					self.qr_code = get_barcode(barcode_value = self.member_name + " - " + self.name,options=arguments,barcode_format="qrcode")["value"]
 					frappe.msgprint(self.qr_code)
+					self.save()
 				except Exception as e:
 					frappe.log_error(frappe.get_traceback(), _("QR Code Generation Failed"))
 			else:
