@@ -177,13 +177,12 @@
   {
    "fieldname": "qr_code",
    "fieldtype": "Attach Image",
-   "label": "QR Code",
-   "read_only": 1
+   "label": "QR Code"
   }
  ],
  "image_field": "image",
  "links": [],
- "modified": "2023-12-20 17:33:28.264837",
+ "modified": "2023-12-21 11:06:13.074135",
  "modified_by": "Administrator",
  "module": "Non Profit",
  "name": "Member",

@@ -18,16 +18,14 @@ class Member(Document):
 		"""Load address and contacts in `__onload`"""
 		load_address_and_contact(self)
 
-	def on_update(self):
+	def after_insert(self):
 		self.generate_qr_code()
 		self.send_email_to_member()
-
 
 	def validate(self):
 		if self.email_id:
 			self.validate_email_type(self.email_id)
-			self.generate_qr_code()
-			self.send_email_to_member()
+
 
 	def validate_email_type(self, email):
 		from frappe.utils import validate_email_address
@@ -63,16 +61,19 @@ class Member(Document):
 
 
 	def generate_qr_code(self):
-		if not self.qr_code:
+		if not self.qr_code  or self.qr_code == "":
 			if self.name and self.member_name and self.email_id:
+				frappe.msgprint("Generating QR Code")
 				from print_designer.print_designer.page.print_designer.print_designer import get_barcode
 				arguments = {
-					"barcode_format": "qrcode",
-					"barcode_value": self.member_name + " - " + self.name,
-					"options": {"background":"#ffffff","quiet_zone":1,"foreground":"#142b91"}
+					"scale": 3,
+					"background": "#ffffff",
+					"module_color": "#142b91",
+					"quiet_zone":1,
 					}
 				try:
-					self.qr_code = get_barcode(arguments)["value"]
+					self.qr_code = get_barcode(barcode_value = self.member_name + " - " + self.name,options=arguments,barcode_format="qrcode")["value"]
+					frappe.msgprint(self.qr_code)
 				except Exception as e:
 					frappe.log_error(frappe.get_traceback(), _("QR Code Generation Failed"))
 			else:
@@ -84,10 +85,10 @@ class Member(Document):
 		args = {
 			"doctype" : "Member",
 			"name" : self.name,
-			"content" : f"<h3><i>Your Personal certified NHIF Notice has been generated.<br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download.</i></h3>",
+			"content" : f"Dear Member,<br><br><h3><i>Your institution's unique NHIF Notice has been auto generated.</i></h3><br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download.",
 			"subject" : "NHIF Notice",
 			"sent_or_received" : "Sent",
-			"sender" : "RUPHA",
+			"sender" : "noreply@rupha.co.ke",
 			"recipients" : [self.email_id],
 			"communication_medium" : "Email",
 			"print_html" : None,
@@ -108,13 +109,22 @@ class Member(Document):
 		# :param send_me_a_copy: Send a copy to the sender (default **False**).
 		# :param email_template: Template which is used to compose mail .
 		# :param send_after: Send after the given datetime.
-		if self.is_new():
-			try:
-				make(args)
-			except Exception as e:
-				frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
-
-
+		
+		try:
+			make(
+				doctype = args["doctype"],
+				name = args["name"],
+				content = args["content"],
+				subject = args["subject"],
+				sent_or_received = args["sent_or_received"],
+				sender = args["sender"],
+				recipients = args["recipients"],
+				communication_medium = args["communication_medium"],
+				print_html = args["print_html"],
+				print_format = args["print_format"]
+			)
+		except Exception as e:
+			frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
 
 
 	@frappe.whitelist()
