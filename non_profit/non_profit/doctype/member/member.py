@@ -63,7 +63,7 @@ class Member(Document):
 	def generate_qr_code(self):
 		if not self.qr_code  or self.qr_code == "":
 			if self.name and self.member_name and self.email_id:
-				frappe.msgprint("Generating QR Code")
+				frappe.msgprint("Member Auth QR Code:")
 				from print_designer.print_designer.page.print_designer.print_designer import get_barcode
 				arguments = {
 					"scale": 3,
@@ -93,37 +93,22 @@ class Member(Document):
 			<strong>Rural Private Hospitals Association (RUPHA)</strong><br>\
 			2nd Floor, Lungalunga Square, Off Lungalunga Street, Industrial Area Nairobi, Kenya | Email Address: info@rupha.co.ke<br>\
 			http://www.rupha.co.ke/<br>\
-			<h4><strong>Powered by RUPHAsoft</strong><\h4>\
+			<h4><strong>Powered by RUPHAsoft</strong></h4>\
 		'
 		args = {
 			"doctype" : "Member",
 			"name" : self.name,
-			"content" : f"Dear Member,<br><br><h3><i>Your institution's unique NHIF Notice has been auto generated.</i></h3><br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download.<br>"+ footer,
+			"content" : f"Dear Member,<br><br><h3><i>Your institution's unique NHIF Notice has been auto generated.</i></h3><br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>"+ footer,
 			"subject" : "NHIF Notice",
 			"sent_or_received" : "Sent",
 			"sender" : "noreply@rupha.co.ke",
 			"sender_full_name": "RUPHA - Powered by RUPHAsoft",
-			"send_email": True,
+			"send_email": 1,
 			"recipients" : [self.email_id],
 			"communication_medium" : "Email",
 			"print_html" : None,
 			"print_format" : "RUPHA-NOTICE"
 		}
-		# :param doctype: Reference DocType.
-		# :param name: Reference Document name.
-		# :param content: Communication body.
-		# :param subject: Communication subject.
-		# :param sent_or_received: Sent or Received (default **Sent**).
-		# :param sender: Communcation sender (default current user).
-		# :param recipients: Communication recipients as list.
-		# :param communication_medium: Medium of communication (default **Email**).
-		# :param send_email: Send via email (default **False**).
-		# :param print_html: HTML Print format to be sent as attachment.
-		# :param print_format: Print Format name of parent document to be sent as attachment.
-		# :param attachments: List of File names or dicts with keys "fname" and "fcontent"
-		# :param send_me_a_copy: Send a copy to the sender (default **False**).
-		# :param email_template: Template which is used to compose mail .
-		# :param send_after: Send after the given datetime.
 		
 		try:
 			comm = make(
@@ -140,8 +125,19 @@ class Member(Document):
 				print_html = args["print_html"],
 				print_format = args["print_format"]
 			)
-			comm.send_email()
-			emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
+			# comm = frappe.get_doc(
+			# 	{
+			# 		"doctype": "Communication",
+			# 		"subject": self.subject,
+			# 		"content": self.get_message(),
+			# 		"sent_or_received": "Sent",
+			# 		"reference_doctype": self.reference_doctype,
+			# 		"reference_name": self.reference_name,
+			# 	}
+			# )
+			# comm.insert(ignore_permissions=True)
+			# comm.send_email()
+			# emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
 		except Exception as e:
 			frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
 
