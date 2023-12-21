@@ -126,7 +126,7 @@ class Member(Document):
 		# :param send_after: Send after the given datetime.
 		
 		try:
-			make(
+			comm = make(
 				doctype = args["doctype"],
 				name = args["name"],
 				content = args["content"],
@@ -140,6 +140,13 @@ class Member(Document):
 				print_html = args["print_html"],
 				print_format = args["print_format"]
 			)
+			comm.send_email(
+				print_html=args["print_html"],
+				print_format=args["print_format"],
+				send_me_a_copy=0,
+				print_letterhead=0,
+			)
+			emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
 		except Exception as e:
 			frappe.log_error(frappe.get_traceback(), _("Member Email Sending Failed"))
 
