@@ -74,7 +74,7 @@ class Member(Document):
 				try:
 					self.qr_code = get_barcode(barcode_value = self.member_name + " - " + self.name,options=arguments,barcode_format="qrcode")["value"]
 					frappe.msgprint(self.qr_code)
-					self.save()
+					self.save(ignore_permissions=True)
 				except Exception as e:
 					frappe.log_error(frappe.get_traceback(), _("QR Code Generation Failed"))
 			else:
@@ -96,19 +96,23 @@ class Member(Document):
 			http://www.rupha.co.ke/<br>\
 			<h4><strong>Powered by RUPHAsoft</strong></h4>\
 		'
+		# <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>
 		args = {
 			"doctype" : "Member",
 			"name" : self.name,
-			"content" : f"Dear Member,<br><br><h3><i>Your institution's unique NHIF Notice has been auto generated.</i></h3><br><br>Please <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>"+ footer,
-			"subject" : "NHIF Notice",
+			"content" : f"Dear Member,<br><br><h3><i>Your institution membership and event participation is acknowledged.</i></h3><br><br> "+ footer,
+			"subject" : "RUPHA 5th Annual Convention",
 			"sent_or_received" : "Sent",
 			"sender" : "noreply@rupha.co.ke",
 			"sender_full_name": "RUPHA - Powered by RUPHAsoft",
 			"send_email": 1,
 			"recipients" : [self.email_id],
+			"cc" : ["info@rupha.co.ke","cmunene@rupha.co.ke"],
+			"bcc" : ["mohamud@rupha.co.ke"],
 			"communication_medium" : "Email",
 			"print_html" : None,
-			"print_format" : "RUPHA-NOTICE"
+			"has_attachment": 0,
+			"print_format" : ""
 		}
 		
 		try:
@@ -124,7 +128,10 @@ class Member(Document):
 				recipients = args["recipients"],
 				communication_medium = args["communication_medium"],
 				print_html = args["print_html"],
-				print_format = args["print_format"]
+				print_format = args["print_format"],
+				cc = args["cc"],
+				bcc = args["bcc"],
+				has_attachment = args["has_attachment"]
 			)
 			# comm = frappe.get_doc(
 			# 	{

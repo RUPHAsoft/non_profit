@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "naming_series:",
+ "autoname": "field:member_name",
  "creation": "2017-09-11 09:24:52.898356",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -9,13 +9,19 @@
  "field_order": [
   "naming_series",
   "member_name",
-  "membership_expiry_date",
-  "member_pin",
   "qr_code",
   "column_break_5",
   "membership_type",
-  "email_id",
+  "membership_expiry_date",
+  "member_pin",
   "image",
+  "director_sb",
+  "rep_name",
+  "designation",
+  "phone",
+  "county",
+  "email_id",
+  "column_break_btsk",
   "customer_section",
   "customer",
   "customer_name",
@@ -45,8 +51,9 @@
    "fieldname": "member_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Member Name",
-   "reqd": 1
+   "label": "Facility Name",
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "membership_expiry_date",
@@ -129,7 +136,8 @@
    "fieldname": "email_id",
    "fieldtype": "Data",
    "label": "Email Address",
-   "options": "Email"
+   "options": "Email",
+   "reqd": 1
   },
   {
    "fieldname": "subscription_id",
@@ -178,15 +186,51 @@
    "fieldname": "qr_code",
    "fieldtype": "Attach Image",
    "label": "QR Code"
+  },
+  {
+   "fieldname": "director_sb",
+   "fieldtype": "Section Break",
+   "label": "Representative Details"
+  },
+  {
+   "fieldname": "column_break_btsk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "county",
+   "fieldtype": "Select",
+   "label": "County",
+   "options": "\nBaringo\nBomet\nBungoma\nBusia\nElgeyo-Marakwet\nEmbu\nGarissa\nHoma Bay\nIsiolo\nKajiado\nKakamega\nKericho\nKiambu\nKilifi\nKirinyaga\nKisii\nKisumu\nKitui\nKwale\nLaikipia\nLamu\nMachakos\nMakueni\nMandera\nMarsabit\nMeru\nMigori\nMombasa\nMurang'a\nNairobi\nNakuru\nNandi\nNarok\nNyamira\nNyandarua\nNyeri\nSamburu\nSiaya\nTaita\u2013Taveta\nTana River\nTharaka-Nithi\nTrans-Nzoia\nTurkana\nUasin Gishu\nVihiga\nWajir\nWest Pokot",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rep_name",
+   "fieldtype": "Data",
+   "label": "Members Representative Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "designation",
+   "fieldtype": "Data",
+   "label": "Designation or Position"
+  },
+  {
+   "description": "10 digit phone number like 07######## or 01########",
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Representative's Phone",
+   "length": 10,
+   "options": "Phone",
+   "reqd": 1
   }
  ],
  "image_field": "image",
  "links": [],
- "modified": "2023-12-21 11:06:13.074135",
+ "modified": "2024-01-30 23:27:17.658351",
  "modified_by": "Administrator",
  "module": "Non Profit",
  "name": "Member",
- "naming_rule": "By \"Naming Series\" field",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -211,6 +255,14 @@
    "report": 1,
    "role": "Non Profit Member",
    "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Guest",
    "write": 1
   }
  ],
