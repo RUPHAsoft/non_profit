@@ -110,21 +110,6 @@ class Member(Document):
 			<strong>PAYBILL:</strong> 247247<br>\
 			<strong>ACCOUNT NO:</strong> 176 028 136 2990<br>\
 			<strong>ACCOUNT NAME :</strong> RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA<br>'
-
-<br><h3><strong>Payment Options:</strong></h3><br>
-<strong><u>BANK DETAILS</u></strong>
-<strong>BANK DETAILS</strong> : EQUITY BANK (KENYA) LIMITED<br>
-<strong>ACCOUNT NAME RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA</strong><br>
-<strong>BANK ACCOUNT NO :</strong> 17602-8136-2990 -KES<br>
-<strong>1760284516849 -USD</strong><br>
-<strong>BANK SWIFT CODE :</strong> EQBLKENAXXX<br>
-<strong>BANK CODE:</strong> 068<br>
-<strong>BRANCH CODE:</strong> 176<br>
-<strong>BRANCH NAME SYOKIMAU GATEWAY MALL BRANCH</strong><br>
-<strong><u>MPESA</u></strong><br>
-<strong>PAYBILL:</strong> 247247<br>
-<strong>ACCOUNT NO:</strong> 176 028 136 2990<br>
-<strong>ACCOUNT NAME :</strong> RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA<br>
 		# <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>
 		args = {
 			"doctype" : "Member",
