@@ -96,12 +96,41 @@ class Member(Document):
 			http://www.rupha.co.ke/<br>\
 			<h4><strong>Powered by RUPHAsoft</strong></h4>\
 		'
+		payment_instructions = '<br><h3><strong>Payment Options:</strong></h3><br>\
+  			<strong><u>BANK DETAILS</u></strong>\
+			<strong>BANK DETAILS</strong> : EQUITY BANK (KENYA) LIMITED<br>\
+			<strong>ACCOUNT NAME RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA</strong><br>\
+			<strong>BANK ACCOUNT NO :</strong> 17602-8136-2990 -KES<br>\
+			<strong>1760284516849 -USD</strong><br>\
+			<strong>BANK SWIFT CODE :</strong> EQBLKENAXXX<br>\
+			<strong>BANK CODE:</strong> 068<br>\
+			<strong>BRANCH CODE:</strong> 176<br>\
+			<strong>BRANCH NAME SYOKIMAU GATEWAY MALL BRANCH</strong><br>\
+			<strong><u>MPESA</u></strong><br>\
+			<strong>PAYBILL:</strong> 247247<br>\
+			<strong>ACCOUNT NO:</strong> 176 028 136 2990<br>\
+			<strong>ACCOUNT NAME :</strong> RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA<br>'
+
+<br><h3><strong>Payment Options:</strong></h3><br>
+<strong><u>BANK DETAILS</u></strong>
+<strong>BANK DETAILS</strong> : EQUITY BANK (KENYA) LIMITED<br>
+<strong>ACCOUNT NAME RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA</strong><br>
+<strong>BANK ACCOUNT NO :</strong> 17602-8136-2990 -KES<br>
+<strong>1760284516849 -USD</strong><br>
+<strong>BANK SWIFT CODE :</strong> EQBLKENAXXX<br>
+<strong>BANK CODE:</strong> 068<br>
+<strong>BRANCH CODE:</strong> 176<br>
+<strong>BRANCH NAME SYOKIMAU GATEWAY MALL BRANCH</strong><br>
+<strong><u>MPESA</u></strong><br>
+<strong>PAYBILL:</strong> 247247<br>
+<strong>ACCOUNT NO:</strong> 176 028 136 2990<br>
+<strong>ACCOUNT NAME :</strong> RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA<br>
 		# <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>
 		args = {
 			"doctype" : "Member",
 			"name" : self.name,
-			"content" : f"Dear Member,<br><br><h3><i>Your institution membership and event participation is acknowledged.</i></h3><br><br> "+ footer,
-			"subject" : "RUPHA 5th Annual Convention",
+			"content" : f"Dear Member,<br><br><h3><i>Your institution's membership is acknowledged.</i></h3><br><br> "+payment_instructions+ footer,
+			"subject" : "Member Acknowledgement",
 			"sent_or_received" : "Sent",
 			"sender" : "noreply@rupha.co.ke",
 			"sender_full_name": "RUPHA - Powered by RUPHAsoft",
@@ -111,8 +140,8 @@ class Member(Document):
 			"bcc" : ["mohamud@rupha.co.ke"],
 			"communication_medium" : "Email",
 			"print_html" : None,
-			"has_attachment": 0,
-			"print_format" : ""
+			"has_attachment": 1,
+			"print_format" : "New Member"
 		}
 		
 		try:

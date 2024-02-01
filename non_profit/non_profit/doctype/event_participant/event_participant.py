@@ -30,12 +30,28 @@ class EventParticipant(Document):
 			http://www.rupha.co.ke/<br>\
 			<h4><strong>Powered by RUPHAsoft</strong></h4>\
 		'
+
+		payment_instructions = '<br><h3><strong>Payment Options:</strong></h3><br>\
+			<strong><u>BANK DETAILS</u></strong>\
+			<strong>BANK DETAILS</strong> : EQUITY BANK (KENYA) LIMITED<br>\
+			<strong>ACCOUNT NAME RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA</strong><br>\
+			<strong>BANK ACCOUNT NO :</strong> 17602-8136-2990 -KES<br>\
+			<strong>1760284516849 -USD</strong><br>\
+			<strong>BANK SWIFT CODE :</strong> EQBLKENAXXX<br>\
+			<strong>BANK CODE:</strong> 068<br>\
+			<strong>BRANCH CODE:</strong> 176<br>\
+			<strong>BRANCH NAME SYOKIMAU GATEWAY MALL BRANCH</strong><br>\
+			<strong><u>MPESA</u></strong><br>\
+			<strong>PAYBILL:</strong> 247247<br>\
+			<strong>ACCOUNT NO:</strong> 176 028 136 2990<br>\
+			<strong>ACCOUNT NAME :</strong> RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA<br><br>'
+
 		# <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>
 		args = {
 			"doctype" : "Event Participant",
 			"name" : self.name,
-			"content" : f"Dear {self.participant_name},<br><br><h3><i>Your institution participation request has been received.</i></h3><br><br> "+ footer,
-			"subject" : "RUPHA 5th Annual Convention",
+			"content" : f"Dear {self.participant_name},<br><br><h3><i>Your participation request has been received.</i></h3><br><br> "+payment_instructions+ footer,
+			"subject" : "RUPHA's 5th Annual Convention",
 			"sent_or_received" : "Sent",
 			"sender" : "noreply@rupha.co.ke",
 			"sender_full_name": "RUPHA - Powered by RUPHAsoft",
@@ -45,8 +61,8 @@ class EventParticipant(Document):
 			"bcc" : ["mohamud@rupha.co.ke"],
 			"communication_medium" : "Email",
 			"print_html" : None,
-			"has_attachment": 0,
-			"print_format" : ""
+			"has_attachment": 1,
+			"print_format" : "Event Participant"
 		}
 		
 		try:
