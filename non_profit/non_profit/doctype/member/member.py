@@ -145,7 +145,8 @@ class Member(Document):
 				print_format = args["print_format"],
 				cc = args["cc"],
 				bcc = args["bcc"],
-				has_attachment = args["has_attachment"]
+				has_attachment = args["has_attachment"],
+				print_letterhead = False
 			)
 			# comm = frappe.get_doc(
 			# 	{
