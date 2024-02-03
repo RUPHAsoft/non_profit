@@ -99,4 +99,4 @@ class EventParticipant(Document):
 			# comm.send_email()
 			# emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
 		except Exception as e:
-			frappe.log_error(frappe.get_traceback(), _("participant Email Sending Failed"))
+			frappe.log_error(frappe.get_traceback(), "participant Email Sending Failed")
