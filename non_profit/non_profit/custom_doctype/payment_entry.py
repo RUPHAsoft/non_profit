@@ -62,11 +62,30 @@ class NonProfitPaymentEntry(PaymentEntry):
 						frappe.throw(_("{0} {1} must be submitted")
 							.format(d.reference_doctype, d.reference_name))
 
-	def set_missing_ref_details(self, force=False):
+	def set_missing_ref_details(
+		self,
+		force: bool = False,
+		update_ref_details_only_for: list | None = None,
+		reference_exchange_details: dict | None = None,
+	) -> None:
 		for d in self.get("references"):
 			if d.allocated_amount:
-				ref_details = get_payment_reference_details(d.reference_doctype,
-					d.reference_name, self.party_account_currency)
+				if (
+					update_ref_details_only_for
+					and (d.reference_doctype, d.reference_name) not in update_ref_details_only_for
+				):
+					continue
+
+				ref_details = get_payment_reference_details(d.reference_doctype, d.reference_name, self.party_account_currency,
+															self.party_type, self.party)
+
+				# Only update exchange rate when the reference is Journal Entry
+				if (
+					reference_exchange_details
+					and d.reference_doctype == reference_exchange_details.reference_doctype
+					and d.reference_name == reference_exchange_details.reference_name
+				):
+					ref_details.update({"exchange_rate": reference_exchange_details.exchange_rate})
 
 				for field, value in ref_details.items():
 					if d.exchange_gain_loss:
@@ -171,7 +190,7 @@ def set_paid_amount_and_received_amount(party_account_currency, bank, outstandin
 
 
 @frappe.whitelist()
-def get_payment_reference_details(reference_doctype, reference_name, party_account_currency):
+def get_payment_reference_details(reference_doctype, reference_name, party_account_currency, party_type=None, party=None):
 	total_amount = outstanding_amount = exchange_rate = bill_no = None
 	ref_doc = frappe.get_doc(reference_doctype, reference_name)
 	company_currency = ref_doc.get("company_currency") or erpnext.get_company_currency(ref_doc.company)
@@ -194,7 +213,7 @@ def get_payment_reference_details(reference_doctype, reference_name, party_accou
 			exchange_rate = get_exchange_rate(party_account_currency, company_currency, ref_doc.posting_date)
 		else:
 			exchange_rate = 1
-			outstanding_amount = get_outstanding_on_journal_entry(reference_name)
+			outstanding_amount = get_outstanding_on_journal_entry(reference_name, party_type, party)
 	elif reference_doctype != "Journal Entry":
 		if ref_doc.doctype == "Expense Claim":
 				total_amount = flt(ref_doc.total_sanctioned_amount) + flt(ref_doc.total_taxes_and_charges)
