@@ -14,76 +14,128 @@ from non_profit.non_profit.doctype.membership_type.membership_type import get_me
 
 
 class Member(Document):
-	def onload(self):
-		"""Load address and contacts in `__onload`"""
-		load_address_and_contact(self)
 
-	def after_insert(self):
-		self.generate_qr_code()
-		self.send_email_to_member()
+    def create_contact_and_address(self):
+        try:
+            # Create Contact
+            contact = frappe.get_doc({
+                'doctype': 'Contact',
+                'first_name': self.rep_name,
+                'email_ids': [{
+                    'email_id': self.representative_email_id,
+                    'is_primary': 1
+                }],
+                'phone_nos': [{
+                    'phone': self.phone,
+                    'is_primary_phone': 1
+                }],
+                'links': [{
+                    'link_doctype': 'Member',
+                    'link_name': self.name
+                }]
+            })
+            contact.insert(ignore_permissions=True)
+            frappe.logger().info(
+                f"Contact {contact.name} created for Member {self.name}.")
 
-	def validate(self):
-		if self.email_id:
-			self.validate_email_type(self.email_id)
+            # Create Address
+            address = frappe.get_doc({
+                'doctype': 'Address',
+                'address_title': self.member_name,
+                'address_type': 'Current',
+                'city': self.county,
+                'address_line1': "",
+                'links': [{
+                    'link_doctype': 'Member',
+                    'link_name': self.name
+                }]
+            })
+            address.insert(ignore_permissions=True, ignore_mandatory=True)
+            frappe.logger().info(f"Address {address.name} created for Member {self.name}.")
 
+            frappe.logger().info( f"HTML fields updated for Member {self.name}.")
 
-	def validate_email_type(self, email):
-		from frappe.utils import validate_email_address
-		validate_email_address(email.strip(), True)
+            # self.contact_html
 
-	def setup_subscription(self):
-		non_profit_settings = frappe.get_doc('Non Profit Settings')
-		if not non_profit_settings.enable_razorpay_for_memberships:
-			frappe.throw(_('Please check Enable Razorpay for Memberships in {0} to setup subscription')).format(
-				get_link_to_form('Non Profit Settings', 'Non Profit Settings'))
+        except Exception as e:
+            frappe.logger().error(
+                f"Error in creating contact and address for Member {self.name}: {frappe.get_traceback()}")
 
-		controller = get_payment_gateway_controller("Razorpay")
-		settings = controller.get_settings({})
+    def onload(self):
+        """Load address and contacts in `__onload`"""
+        load_address_and_contact(self)
 
-		plan_id = frappe.get_value("Membership Type", self.membership_type, "razorpay_plan_id")
+    def after_insert(self):
+        self.generate_qr_code()
+        self.send_email_to_member()
+        self.create_contact_and_address()
+        frappe.logger().info(
+            f"Member {self.name} inserted, creating contact and address.")
 
-		if not plan_id:
-			frappe.throw(_("Please setup Razorpay Plan ID"))
+    def validate(self):
+        if self.member_approval_status == "Approved" and not self.customer:
+            self.make_customer_and_link()
+        if self.email_id:
+            self.validate_email_type(self.email_id)
 
-		subscription_details = {
-			"plan_id": plan_id,
-			"billing_frequency": cint(non_profit_settings.billing_frequency),
-			"customer_notify": 1
-		}
+    def validate_email_type(self, email):
+        from frappe.utils import validate_email_address
+        validate_email_address(email.strip(), True)
 
-		args = {
-			'subscription_details': subscription_details
-		}
+    def setup_subscription(self):
+        non_profit_settings = frappe.get_doc('Non Profit Settings')
+        if not non_profit_settings.enable_razorpay_for_memberships:
+            frappe.throw(_('Please check Enable Razorpay for Memberships in {0} to setup subscription')).format(
+                get_link_to_form('Non Profit Settings', 'Non Profit Settings'))
 
-		subscription = controller.setup_subscription(settings, **args)
+        controller = get_payment_gateway_controller("Razorpay")
+        settings = controller.get_settings({})
 
-		return subscription
+        plan_id = frappe.get_value(
+            "Membership Type", self.membership_type, "razorpay_plan_id")
 
+        if not plan_id:
+            frappe.throw(_("Please setup Razorpay Plan ID"))
 
-	def generate_qr_code(self):
-		if not self.qr_code  or self.qr_code == "":
-			if self.name and self.member_name and self.email_id:
-				frappe.msgprint("Member Auth QR Code:")
-				from print_designer.print_designer.page.print_designer.print_designer import get_barcode
-				arguments = {
-					"scale": 3,
-					"background": "#ffffff",
-					"module_color": "#142b91",
-					"quiet_zone":1,
-					}
-				try:
-					self.qr_code = get_barcode(barcode_value = self.member_name + " - " + self.name,options=arguments,barcode_format="qrcode")["value"]
-					frappe.msgprint(self.qr_code)
-					self.save(ignore_permissions=True)
-				except Exception as e:
-					frappe.log_error(frappe.get_traceback(), _("QR Code Generation Failed"))
-			else:
-				frappe.throw("Please provide all the details")
+        subscription_details = {
+            "plan_id": plan_id,
+            "billing_frequency": cint(non_profit_settings.billing_frequency),
+            "customer_notify": 1
+        }
 
+        args = {
+            'subscription_details': subscription_details
+        }
 
-	def send_email_to_member(self):
-		from frappe.core.doctype.communication.email import make
-		footer = '<hr><small><i>\
+        subscription = controller.setup_subscription(settings, **args)
+
+        return subscription
+
+    def generate_qr_code(self):
+        if not self.qr_code or self.qr_code == "":
+            if self.name and self.member_name and self.email_id:
+                frappe.msgprint("Member Auth QR Code:")
+                from print_designer.print_designer.page.print_designer.print_designer import get_barcode
+                arguments = {
+                    "scale": 3,
+                    "background": "#ffffff",
+                    "module_color": "#142b91",
+                    "quiet_zone": 1,
+                }
+                try:
+                    self.qr_code = get_barcode(
+                        barcode_value=self.member_name + " - " + self.name, options=arguments, barcode_format="qrcode")["value"]
+                    frappe.msgprint(self.qr_code)
+                    self.save(ignore_permissions=True)
+                except Exception as e:
+                    frappe.log_error(frappe.get_traceback(),
+                                     _("QR Code Generation Failed"))
+            else:
+                frappe.throw("Please provide all the details")
+
+    def send_email_to_member(self):
+        from frappe.core.doctype.communication.email import make
+        footer = '<hr><small><i>\
 			This email and any files transmitted with it are confidential and intended solely for the use of the individual or entity to \
 			whom they are addressed. If you have received this email in error please notify the system manager. This message contains \
 			confidential information and is intended only for the individual named. If you are not the named addressee you should not \
@@ -96,7 +148,7 @@ class Member(Document):
 			http://www.rupha.co.ke/<br>\
 			<h4><strong>Powered by RUPHAsoft</strong></h4>\
 		'
-		payment_instructions = '<br><h3><strong>Payment Options:</strong></h3><br>\
+        payment_instructions = '<br><h3><strong>Payment Options:</strong></h3><br>\
   			<strong><u>BANK DETAILS</u></strong>\
 			<strong>BANK DETAILS</strong> : EQUITY BANK (KENYA) LIMITED<br>\
 			<strong>ACCOUNT NAME RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA</strong><br>\
@@ -110,191 +162,201 @@ class Member(Document):
 			<strong>PAYBILL:</strong> 247247<br>\
 			<strong>ACCOUNT NO:</strong> 176 028 136 2990<br>\
 			<strong>ACCOUNT NAME :</strong> RURAL PRIVATE HOSPITALS ASSOCIATION OF KENYA<br>'
-		# <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>
-		args = {
-			"doctype" : "Member",
-			"name" : self.name,
-			"content" : f"Dear Member,<br><br><h3><i>Your institution's membership is acknowledged.</i></h3><br>This is autogenerated email, please reply to info@rupha.co.ke<br> "+payment_instructions+ footer,
-			"subject" : "Member Acknowledgement",
-			"sent_or_received" : "Sent",
-			"sender" : "noreply@rupha.co.ke",
-			"sender_full_name": "RUPHA - Powered by RUPHAsoft",
-			"send_email": 1,
-			"recipients" : [self.email_id],
-			"cc" : ["info@rupha.co.ke","cmunene@rupha.co.ke"],
-			"bcc" : ["mohamud@rupha.co.ke"],
-			"communication_medium" : "Email",
-			"print_html" : None,
-			"has_attachment": 1,
-			"print_format" : "New Member"
-		}
-		
-		try:
-			comm = make(
-				doctype = args["doctype"],
-				name = args["name"],
-				content = args["content"],
-				subject = args["subject"],
-				sent_or_received = args["sent_or_received"],
-				sender = args["sender"],
-				sender_full_name = args["sender_full_name"],
-				send_email = args["send_email"],
-				recipients = args["recipients"],
-				communication_medium = args["communication_medium"],
-				print_html = args["print_html"],
-				print_format = args["print_format"],
-				cc = args["cc"],
-				bcc = args["bcc"],
-				has_attachment = args["has_attachment"],
-				print_letterhead = False
-			)
-			# comm = frappe.get_doc(
-			# 	{
-			# 		"doctype": "Communication",
-			# 		"subject": self.subject,
-			# 		"content": self.get_message(),
-			# 		"sent_or_received": "Sent",
-			# 		"reference_doctype": self.reference_doctype,
-			# 		"reference_name": self.reference_name,
-			# 	}
-			# )
-			# comm.insert(ignore_permissions=True)
-			# comm.send_email()
-			# emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
-		except Exception as e:
-			frappe.log_error(frappe.get_traceback(), "Member Email Sending Failed")
+        # <a href='https://rupha.ruphasoft.com/api/method/frappe.utils.print_format.download_pdf?doctype=Member&name={self.name}&key=None'>Click Here</a> to Download. or see attached document<br>
+        args = {
+            "doctype": "Member",
+            "name": self.name,
+            "content": f"Dear Member,<br><br><h3><i>Your institution's membership is acknowledged.</i></h3><br>This is autogenerated email, please reply to info@rupha.co.ke<br> "+payment_instructions + footer,
+            "subject": "Member Acknowledgement",
+            "sent_or_received": "Sent",
+            "sender": "noreply@rupha.co.ke",
+            "sender_full_name": "RUPHA - Powered by RUPHAsoft",
+            "send_email": 1,
+            "recipients": [self.email_id],
+            "cc": ["info@rupha.co.ke", "cmunene@rupha.co.ke"],
+            "bcc": ["mohamud@rupha.co.ke"],
+            "communication_medium": "Email",
+            "print_html": None,
+            "has_attachment": 1,
+            "print_format": "New Member"
+        }
 
+        try:
+            comm = make(
+                doctype=args["doctype"],
+                name=args["name"],
+                content=args["content"],
+                subject=args["subject"],
+                sent_or_received=args["sent_or_received"],
+                sender=args["sender"],
+                sender_full_name=args["sender_full_name"],
+                send_email=args["send_email"],
+                recipients=args["recipients"],
+                communication_medium=args["communication_medium"],
+                print_html=args["print_html"],
+                print_format=args["print_format"],
+                cc=args["cc"],
+                bcc=args["bcc"],
+                has_attachment=args["has_attachment"],
+                print_letterhead=False
+            )
+            # comm = frappe.get_doc(
+            # 	{
+            # 		"doctype": "Communication",
+            # 		"subject": self.subject,
+            # 		"content": self.get_message(),
+            # 		"sent_or_received": "Sent",
+            # 		"reference_doctype": self.reference_doctype,
+            # 		"reference_name": self.reference_name,
+            # 	}
+            # )
+            # comm.insert(ignore_permissions=True)
+            # comm.send_email()
+            # emails_not_sent_to = comm.exclude_emails_list(include_sender=send_me_a_copy)
+        except Exception as e:
+            frappe.log_error(frappe.get_traceback(),
+                             "Member Email Sending Failed")
 
-	@frappe.whitelist()
-	def make_customer_and_link(self):
-		if self.customer:
-			frappe.msgprint(_("A customer is already linked to this Member"))
+    @frappe.whitelist()
+    def make_customer_and_link(self):
+        if self.customer:
+            frappe.msgprint(_("A customer is already linked to this Member"))
 
-		customer = create_customer(frappe._dict({
-			'fullname': self.member_name,
-			'email': self.email_id,
-			'phone': None
-		}))
+        customer = create_customer(frappe._dict({
+            'fullname': self.member_name,
+            'email': self.email_id,
+            'phone': None
+        }))
 
-		self.customer = customer
-		self.save()
-		frappe.msgprint(_("Customer {0} has been created succesfully.").format(self.customer))
+        self.customer = customer
+        # self.save()
+        frappe.msgprint(
+            _("Customer {0} has been created succesfully.").format(self.customer))
 
 
 def get_or_create_member(user_details):
-	member_list = frappe.get_all("Member", filters={'email': user_details.email, 'membership_type': user_details.plan_id})
-	if member_list and member_list[0]:
-		return member_list[0]['name']
-	else:
-		return create_member(user_details)
+    member_list = frappe.get_all("Member", filters={
+                                 'email': user_details.email, 'membership_type': user_details.plan_id})
+    if member_list and member_list[0]:
+        return member_list[0]['name']
+    else:
+        return create_member(user_details)
+
 
 def create_member(user_details):
-	user_details = frappe._dict(user_details)
-	member = frappe.new_doc("Member")
-	member.update({
-		"member_name": user_details.fullname,
-		"email_id": user_details.email,
-		"pan_number": user_details.pan or None,
-		"membership_type": user_details.plan_id,
-		"customer_id": user_details.customer_id or None,
-		"subscription_id": user_details.subscription_id or None,
-		"subscription_status": user_details.subscription_status or ""
-	})
+    user_details = frappe._dict(user_details)
+    member = frappe.new_doc("Member")
+    member.update({
+        "member_name": user_details.fullname,
+        "email_id": user_details.email,
+        "pan_number": user_details.pan or None,
+        "membership_type": user_details.plan_id,
+        "customer_id": user_details.customer_id or None,
+        "subscription_id": user_details.subscription_id or None,
+        "subscription_status": user_details.subscription_status or ""
+    })
 
-	member.insert(ignore_permissions=True)
-	member.customer = create_customer(user_details, member.name)
-	member.save(ignore_permissions=True)
+    member.insert(ignore_permissions=True)
+    member.customer = create_customer(user_details, member.name)
+    member.save(ignore_permissions=True)
 
-	return member
+    return member
+
 
 def create_customer(user_details, member=None):
-	customer = frappe.new_doc("Customer")
-	customer.customer_name = user_details.fullname
-	customer.customer_type = "Individual"
-	customer.customer_group = frappe.db.get_single_value("Selling Settings", "customer_group")
-	customer.territory = frappe.db.get_single_value("Selling Settings", "territory")
-	customer.flags.ignore_mandatory = True
-	customer.insert(ignore_permissions=True)
+    customer = frappe.new_doc("Customer")
+    customer.customer_name = user_details.fullname
+    customer.customer_type = "Individual"
+    customer.customer_group = frappe.db.get_single_value(
+        "Selling Settings", "customer_group")
+    customer.territory = frappe.db.get_single_value(
+        "Selling Settings", "territory")
+    customer.flags.ignore_mandatory = True
+    customer.insert(ignore_permissions=True)
 
-	try:
-		frappe.db.savepoint("contact_creation")
-		contact = frappe.new_doc("Contact")
-		contact.first_name = user_details.fullname
-		if user_details.mobile:
-			contact.add_phone(user_details.mobile, is_primary_phone=1, is_primary_mobile_no=1)
-		if user_details.email:
-			contact.add_email(user_details.email, is_primary=1)
-		contact.insert(ignore_permissions=True)
+    try:
+        frappe.db.savepoint("contact_creation")
+        contact = frappe.new_doc("Contact")
+        contact.first_name = user_details.fullname
+        if user_details.mobile:
+            contact.add_phone(user_details.mobile,
+                              is_primary_phone=1, is_primary_mobile_no=1)
+        if user_details.email:
+            contact.add_email(user_details.email, is_primary=1)
+        contact.insert(ignore_permissions=True)
 
-		contact.append("links", {
-			"link_doctype": "Customer",
-			"link_name": customer.name
-		})
+        contact.append("links", {
+            "link_doctype": "Customer",
+            "link_name": customer.name
+        })
 
-		if member:
-			contact.append("links", {
-				"link_doctype": "Member",
-				"link_name": member
-			})
+        if member:
+            contact.append("links", {
+                "link_doctype": "Member",
+                "link_name": member
+            })
 
-		contact.save(ignore_permissions=True)
+        contact.save(ignore_permissions=True)
 
-	except frappe.DuplicateEntryError:
-		return customer.name
+    except frappe.DuplicateEntryError:
+        return customer.name
 
-	except Exception as e:
-		frappe.db.rollback(save_point="contact_creation")
-		frappe.log_error(frappe.get_traceback(), _("Contact Creation Failed"))
-		pass
+    except Exception as e:
+        frappe.db.rollback(save_point="contact_creation")
+        frappe.log_error(frappe.get_traceback(), _("Contact Creation Failed"))
+        pass
 
-	return customer.name
+    return customer.name
+
 
 @frappe.whitelist(allow_guest=True)
 def create_member_subscription_order(user_details):
-	"""Create Member subscription and order for payment
+    """Create Member subscription and order for payment
 
-	Args:
-		user_details (TYPE): Description
+    Args:
+            user_details (TYPE): Description
 
-	Returns:
-		Dictionary: Dictionary with subscription details
-		{
-			'subscription_details': {
-										'plan_id': 'plan_EXwyxDYDCj3X4v',
-										'billing_frequency': 24,
-										'customer_notify': 1
-									},
-			'subscription_id': 'sub_EZycCvXFvqnC6p'
-		}
-	"""
+    Returns:
+            Dictionary: Dictionary with subscription details
+            {
+                    'subscription_details': {
+                                                                            'plan_id': 'plan_EXwyxDYDCj3X4v',
+                                                                            'billing_frequency': 24,
+                                                                            'customer_notify': 1
+                                                                    },
+                    'subscription_id': 'sub_EZycCvXFvqnC6p'
+            }
+    """
 
-	user_details = frappe._dict(user_details)
-	member = get_or_create_member(user_details)
+    user_details = frappe._dict(user_details)
+    member = get_or_create_member(user_details)
 
-	subscription = member.setup_subscription()
+    subscription = member.setup_subscription()
 
-	member.subscription_id = subscription.get('subscription_id')
-	member.save(ignore_permissions=True)
+    member.subscription_id = subscription.get('subscription_id')
+    member.save(ignore_permissions=True)
 
-	return subscription
+    return subscription
+
 
 @frappe.whitelist()
 def register_member(fullname, email, rzpay_plan_id, subscription_id, pan=None, mobile=None):
-	plan = get_membership_type(rzpay_plan_id)
-	if not plan:
-		raise frappe.DoesNotExistError
+    plan = get_membership_type(rzpay_plan_id)
+    if not plan:
+        raise frappe.DoesNotExistError
 
-	member = frappe.db.exists("Member", {'email': email, 'subscription_id': subscription_id })
-	if member:
-		return member
-	else:
-		member = create_member(dict(
-			fullname=fullname,
-			email=email,
-			plan_id=plan,
-			subscription_id=subscription_id,
-			pan=pan,
-			mobile=mobile
-		))
+    member = frappe.db.exists(
+        "Member", {'email': email, 'subscription_id': subscription_id})
+    if member:
+        return member
+    else:
+        member = create_member(dict(
+            fullname=fullname,
+            email=email,
+            plan_id=plan,
+            subscription_id=subscription_id,
+            pan=pan,
+            mobile=mobile
+        ))
 
-		return member.name
+        return member.name
