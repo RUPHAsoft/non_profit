@@ -14,6 +14,42 @@ from non_profit.non_profit.doctype.membership_type.membership_type import get_me
 
 
 class Member(Document):
+    @frappe.whitelist()
+    def create_membership_and_link(self):
+        if self.member_approval_status != "Approved":
+            frappe.msgprint(_("Member is not approved yet"))
+            return
+
+        existing_membership = frappe.get_all(
+            "Membership", filters={"member": self.name})
+        if existing_membership:
+            frappe.msgprint(_("Membership already exists for this Member"))
+            return
+
+        membership = create_membership(frappe._dict({
+            'member': self.name,
+            'membership_type': self.membership_type,
+            'from_date': self.initial_membership,
+            'to_date': self.membership_expiry_date
+        }))
+
+        frappe.msgprint(
+            _("Membership {0} has been created successfully.").format(membership))
+
+        # Create subscription after membership is successfully created
+        subscription = create_subscription(frappe._dict({
+            'party': self.customer,
+            'self.name': membership,
+            'start_date': self.initial_membership,
+            'end_date': self.membership_expiry_date,
+            'plans': [{
+                'plan': "Ordinary Member",
+                'qty': '1'
+            }]
+        }))
+
+        frappe.msgprint(
+            _("Subscription {0} has been created successfully.").format(subscription))
 
     def create_contact_and_address(self):
         try:
@@ -51,9 +87,11 @@ class Member(Document):
                 }]
             })
             address.insert(ignore_permissions=True, ignore_mandatory=True)
-            frappe.logger().info(f"Address {address.name} created for Member {self.name}.")
+            frappe.logger().info(
+                f"Address {address.name} created for Member {self.name}.")
 
-            frappe.logger().info( f"HTML fields updated for Member {self.name}.")
+            frappe.logger().info(
+                f"HTML fields updated for Member {self.name}.")
 
             # self.contact_html
 
@@ -69,14 +107,13 @@ class Member(Document):
         self.generate_qr_code()
         self.send_email_to_member()
         self.create_contact_and_address()
-        frappe.logger().info(
-            f"Member {self.name} inserted, creating contact and address.")
 
     def validate(self):
         if self.member_approval_status == "Approved" and not self.customer:
             self.make_customer_and_link()
         if self.email_id:
             self.validate_email_type(self.email_id)
+        self.create_membership_and_link()
 
     def validate_email_type(self, email):
         from frappe.utils import validate_email_address
@@ -360,3 +397,43 @@ def register_member(fullname, email, rzpay_plan_id, subscription_id, pan=None, m
         ))
 
         return member.name
+
+
+def create_membership(details):
+    membership = frappe.new_doc("Membership")
+    membership.member = details.member
+    membership.membership_type = details.membership_type
+    membership.from_date = details.from_date
+    membership.to_date = details.to_date
+    membership.membership_status = 'New'
+    membership.insert(ignore_permissions=True)
+
+    try:
+        frappe.db.savepoint("membership_creation")
+
+    except frappe.DuplicateEntryError:
+        return membership.name
+
+    except Exception as e:
+        frappe.db.rollback(save_point="membership_creation")
+        frappe.log_error(frappe.get_traceback(),
+                         _("Membership Creation Failed"))
+        pass
+
+    return membership.name
+
+
+def create_subscription(details):
+    subscription = frappe.new_doc("Subscription")
+    subscription.membership = details.membership  # Link to the created membership
+    subscription.party_type = "Customer"
+    subscription.party = details.party
+    subscription.start_date = details.start_date
+    subscription.end_date = details.end_date
+
+    plans = details.get('plans', [])
+    if plans:
+        for plan_detail in plans:
+            subscription.append("plans", plan_detail)
+    subscription.insert(ignore_permissions=True)
+    return subscription.name
