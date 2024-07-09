@@ -11,6 +11,8 @@ from frappe.utils import cint, get_link_to_form
 from payments.utils import get_payment_gateway_controller
 
 from non_profit.non_profit.doctype.membership_type.membership_type import get_membership_type
+from erpnext.accounts.doctype.subscription.subscription import Subscription
+from erpnext.accounts.doctype.subscription.subscription import is_prorate, get_prorata_factor, process_all
 
 
 class Member(Document):
@@ -50,6 +52,16 @@ class Member(Document):
 
         frappe.msgprint(
             _("Subscription {0} has been created successfully.").format(subscription))
+
+        # Check if subscription was successfully created before creating invoice
+        if subscription:
+            subscription_doc = frappe.get_doc("Subscription", subscription)
+            invoicing = subscription_doc.create_invoice()
+            invoicing.submit()
+            frappe.msgprint(_("Invoice created and submitted successfully."))
+        else:
+            frappe.msgprint(
+                _("Failed to create subscription. Invoice creation aborted."))
 
     def create_contact_and_address(self):
         try:
@@ -430,6 +442,9 @@ def create_subscription(details):
     subscription.party = details.party
     subscription.start_date = details.start_date
     subscription.end_date = details.end_date
+    subscription.generate_new_invoices_past_due_date = 1
+    subscription.submit_invoice = 1
+    subscription.generate_invoice_at = 'Beginning of the current subscription period'
 
     plans = details.get('plans', [])
     if plans:
