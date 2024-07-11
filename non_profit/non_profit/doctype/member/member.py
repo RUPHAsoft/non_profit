@@ -8,6 +8,7 @@ from frappe.contacts.address_and_contact import load_address_and_contact
 from frappe.model.document import Document
 from frappe.utils import cint, get_link_to_form
 
+from frappe.utils.data import add_to_date, getdate
 from payments.utils import get_payment_gateway_controller
 
 from non_profit.non_profit.doctype.membership_type.membership_type import get_membership_type
@@ -16,6 +17,14 @@ from erpnext.accounts.doctype.subscription.subscription import is_prorate, get_p
 
 
 class Member(Document):
+    def validate_membership_expiry_date(self):
+        period = get_subscription_period(self.initial_membership)
+        
+        if period:
+            self.membership_expiry_date = period['end_date']
+        else:
+            frappe.throw("Subscription period not found for the given initial membership date.")
+
     @frappe.whitelist()
     def create_membership_and_link(self):
         if self.member_approval_status != "Approved":
@@ -27,7 +36,8 @@ class Member(Document):
         if existing_membership:
             frappe.msgprint(_("Membership already exists for this Member"))
             return
-
+        period = get_subscription_period(self.initial_membership)
+        
         membership = create_membership(frappe._dict({
             'member': self.name,
             'membership_type': self.membership_type,
@@ -121,6 +131,7 @@ class Member(Document):
         self.create_contact_and_address()
 
     def validate(self):
+        self.validate_membership_expiry_date()
         if self.member_approval_status == "Approved" and not self.customer:
             self.make_customer_and_link()
         if self.email_id:
@@ -452,3 +463,41 @@ def create_subscription(details):
             subscription.append("plans", plan_detail)
     subscription.insert(ignore_permissions=True)
     return subscription.name
+
+
+def get_subscription_period(start_date):
+    start_date = getdate(start_date)
+    subscription_period = frappe.db.sql("""
+        SELECT name, start_date, end_date 
+        FROM `tabSubscription Period`
+        WHERE start_date <= %s AND end_date >= %s
+        LIMIT 1
+    """, (start_date, start_date), as_dict=True)
+    
+    if subscription_period:
+        return subscription_period[0]
+    else:
+        return None
+    
+def validate_end_date(self):
+    period = get_subscription_period(self.start_date)
+    if period:
+        self.end_date = period.end_date
+
+    billing_cycle_info = self.get_billing_cycle_data()
+    end_date = add_to_date(self.start_date, **billing_cycle_info)
+
+    # if self.end_date and getdate(self.end_date) <= getdate(end_date):
+    #     frappe.throw(
+    #         _("Subscription End Date must be after {0} as per the subscription plan").format(end_date)
+    #     )
+
+# Override the original validate method
+def override_subscription_validate():
+    from erpnext.accounts.doctype.subscription.subscription import Subscription
+
+    Subscription.validate_end_date = validate_end_date
+
+# Hook to extend the Subscription doctype
+def extend_subscription(doc, method):
+    override_subscription_validate()
