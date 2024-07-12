@@ -47,6 +47,11 @@ class Member(Document):
 
         frappe.msgprint(
             _("Membership {0} has been created successfully.").format(membership))
+        
+        if self.membership_type.lower() == "ordinary member":
+            plan = "Membership Annual Sub"
+        else:
+            plan = "Ordinary Member"
 
         # Create subscription after membership is successfully created
         subscription = create_subscription(frappe._dict({
@@ -55,7 +60,7 @@ class Member(Document):
             'start_date': self.initial_membership,
             'end_date': self.membership_expiry_date,
             'plans': [{
-                'plan': "Ordinary Member",
+                'plan': plan,
                 'qty': '1'
             }]
         }))
