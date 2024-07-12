@@ -46,22 +46,22 @@ frappe.ui.form.on('Member', {
 			frappe.contacts.clear_address_and_contact(frm);
 		}
 
-		frappe.call({
-			method: "frappe.client.get_value",
-			args: {
-				'doctype': "Membership",
-				'filters': { 'member': frm.doc.name },
-				'fieldname': [
-					'to_date'
-				]
-			},
-			callback: function (data) {
-				if (data.message) {
-					frappe.model.set_value(frm.doctype, frm.docname,
-						"membership_expiry_date", data.message.to_date);
-				}
-			}
-		});
+		// frappe.call({
+		// 	method: "frappe.client.get_value",
+		// 	args: {
+		// 		'doctype': "Membership",
+		// 		'filters': { 'member': frm.doc.name },
+		// 		'fieldname': [
+		// 			'to_date'
+		// 		]
+		// 	},
+		// 	callback: function (data) {
+		// 		if (data.message) {
+		// 			frappe.model.set_value(frm.doctype, frm.docname,
+		// 				"membership_expiry_date", data.message.to_date);
+		// 		}
+		// 	}
+		// });
 	}
 });
 

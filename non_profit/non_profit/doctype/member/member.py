@@ -8,12 +8,70 @@ from frappe.contacts.address_and_contact import load_address_and_contact
 from frappe.model.document import Document
 from frappe.utils import cint, get_link_to_form
 
+from frappe.utils.data import add_to_date, getdate
 from payments.utils import get_payment_gateway_controller
 
 from non_profit.non_profit.doctype.membership_type.membership_type import get_membership_type
+from erpnext.accounts.doctype.subscription.subscription import Subscription
+from erpnext.accounts.doctype.subscription.subscription import is_prorate, get_prorata_factor, process_all
 
 
 class Member(Document):
+    def validate_membership_expiry_date(self):
+        period = get_subscription_period(self.initial_membership)
+        
+        if period:
+            self.membership_expiry_date = period['end_date']
+        else:
+            frappe.throw("Subscription period not found for the given initial membership date.")
+
+    @frappe.whitelist()
+    def create_membership_and_link(self):
+        if self.member_approval_status != "Approved":
+            frappe.msgprint(_("Member is not approved yet"))
+            return
+
+        existing_membership = frappe.get_all(
+            "Membership", filters={"member": self.name})
+        if existing_membership:
+            frappe.msgprint(_("Membership already exists for this Member"))
+            return
+        period = get_subscription_period(self.initial_membership)
+        
+        membership = create_membership(frappe._dict({
+            'member': self.name,
+            'membership_type': self.membership_type,
+            'from_date': self.initial_membership,
+            'to_date': self.membership_expiry_date
+        }))
+
+        frappe.msgprint(
+            _("Membership {0} has been created successfully.").format(membership))
+
+        # Create subscription after membership is successfully created
+        subscription = create_subscription(frappe._dict({
+            'party': self.customer,
+            'self.name': membership,
+            'start_date': self.initial_membership,
+            'end_date': self.membership_expiry_date,
+            'plans': [{
+                'plan': "Ordinary Member",
+                'qty': '1'
+            }]
+        }))
+
+        frappe.msgprint(
+            _("Subscription {0} has been created successfully.").format(subscription))
+
+        # Check if subscription was successfully created before creating invoice
+        if subscription:
+            subscription_doc = frappe.get_doc("Subscription", subscription)
+            invoicing = subscription_doc.create_invoice()
+            invoicing.submit()
+            frappe.msgprint(_("Invoice created and submitted successfully."))
+        else:
+            frappe.msgprint(
+                _("Failed to create subscription. Invoice creation aborted."))
 
     def create_contact_and_address(self):
         try:
@@ -51,9 +109,11 @@ class Member(Document):
                 }]
             })
             address.insert(ignore_permissions=True, ignore_mandatory=True)
-            frappe.logger().info(f"Address {address.name} created for Member {self.name}.")
+            frappe.logger().info(
+                f"Address {address.name} created for Member {self.name}.")
 
-            frappe.logger().info( f"HTML fields updated for Member {self.name}.")
+            frappe.logger().info(
+                f"HTML fields updated for Member {self.name}.")
 
             # self.contact_html
 
@@ -69,14 +129,14 @@ class Member(Document):
         self.generate_qr_code()
         self.send_email_to_member()
         self.create_contact_and_address()
-        frappe.logger().info(
-            f"Member {self.name} inserted, creating contact and address.")
 
     def validate(self):
+        self.validate_membership_expiry_date()
         if self.member_approval_status == "Approved" and not self.customer:
             self.make_customer_and_link()
         if self.email_id:
             self.validate_email_type(self.email_id)
+        self.create_membership_and_link()
 
     def validate_email_type(self, email):
         from frappe.utils import validate_email_address
@@ -360,3 +420,84 @@ def register_member(fullname, email, rzpay_plan_id, subscription_id, pan=None, m
         ))
 
         return member.name
+
+
+def create_membership(details):
+    membership = frappe.new_doc("Membership")
+    membership.member = details.member
+    membership.membership_type = details.membership_type
+    membership.from_date = details.from_date
+    membership.to_date = details.to_date
+    membership.membership_status = 'New'
+    membership.insert(ignore_permissions=True)
+
+    try:
+        frappe.db.savepoint("membership_creation")
+
+    except frappe.DuplicateEntryError:
+        return membership.name
+
+    except Exception as e:
+        frappe.db.rollback(save_point="membership_creation")
+        frappe.log_error(frappe.get_traceback(),
+                         _("Membership Creation Failed"))
+        pass
+
+    return membership.name
+
+
+def create_subscription(details):
+    subscription = frappe.new_doc("Subscription")
+    subscription.membership = details.membership  # Link to the created membership
+    subscription.party_type = "Customer"
+    subscription.party = details.party
+    subscription.start_date = details.start_date
+    subscription.end_date = details.end_date
+    subscription.generate_new_invoices_past_due_date = 1
+    subscription.submit_invoice = 1
+    subscription.generate_invoice_at = 'Beginning of the current subscription period'
+
+    plans = details.get('plans', [])
+    if plans:
+        for plan_detail in plans:
+            subscription.append("plans", plan_detail)
+    subscription.insert(ignore_permissions=True)
+    return subscription.name
+
+
+def get_subscription_period(start_date):
+    start_date = getdate(start_date)
+    subscription_period = frappe.db.sql("""
+        SELECT name, start_date, end_date 
+        FROM `tabSubscription Period`
+        WHERE start_date <= %s AND end_date >= %s
+        LIMIT 1
+    """, (start_date, start_date), as_dict=True)
+    
+    if subscription_period:
+        return subscription_period[0]
+    else:
+        return None
+    
+def validate_end_date(self):
+    period = get_subscription_period(self.start_date)
+    if period:
+        self.end_date = period.end_date
+
+    billing_cycle_info = self.get_billing_cycle_data()
+    end_date = add_to_date(self.start_date, **billing_cycle_info)
+
+    # if self.end_date and getdate(self.end_date) <= getdate(end_date):
+    #     frappe.throw(
+    #         _("Subscription End Date must be after {0} as per the subscription plan").format(end_date)
+    #     )
+
+# Override the original validate method
+def override_subscription_validate():
+    from erpnext.accounts.doctype.subscription.subscription import Subscription
+
+    Subscription.validate_end_date = validate_end_date
+
+# Hook to extend the Subscription doctype
+def extend_subscription(doc, method):
+    override_subscription_validate()
